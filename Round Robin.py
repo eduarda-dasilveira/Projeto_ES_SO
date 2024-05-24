@@ -29,12 +29,14 @@ def rr():
             processados[processo] += quantum  # INCREMENTA EM UM QUANTUM O QUE JÁ FOI PROCESSADO DO PROCESSO ATUAL
             fila.append(processo)  # COMO O PROCESSO NÃO FOI EXECUTADO TOTALMENTE, ELE VOLTA PARA O FIM DA FILA DE EXECUÇÃO
             print(f"Processo {processo + 1} executou por {quantum} unidades; tempo restante: {tempos[processo] - processados[processo]}")
+            relogio += 1  # Incrementa o relógio para a sobrecarga de troca de contexto
+            print(f'Processo {processo + 1} preemptado; mais 1.0 unidade de tempo por conta da "sobrecarga de troca de contexto"')
         elif falta <= quantum and falta > 0:  # NESSE CASO VERIFICAMOS SE FALTA ALGUM TEMPO ENTRE 0 E O QUANTUM A SER EXECUTADO
             relogio += falta  # INCREMENTA O RELÓGIO O TEMPO QUE FALTA
             processados[processo] += falta  # INCREMENTA O QUE FALTA AO QUE JÁ FOI PROCESSADO DO PROCESSO ATUAL
             tempos_finalizacao[processo] = relogio  # ARMAZENA O TEMPO DE FINALIZAÇÃO DO PROCESSO
             print(f"Processo {processo + 1} executou por {falta} unidades; completou no tempo {relogio}")
-        relogio += 1  # Incrementa o relógio para a sobrecarga de troca de contexto
+        
 
     soma_turnaround = sum([tempos_finalizacao[i] - entradas[i] for i in range(n)])
     return float(soma_turnaround / n)  # RETORNA A MEDIA DOS TURNAROUND
