@@ -1,58 +1,116 @@
-def rr():
-    entradas = list(tmpEnt)  # A LISTA DE ENTRADAS PARA UMA NOVA LISTA, QUE SERÁ ORDENADA
-    tempos = list(tmpExe)  # MESMA IDEIA DE CIMA
-    relogio = 0
-    processados = [0] * n  # LISTA ONDE A CADA EXECUÇÃO IRA SE INCREMENTAR O TEMPO QUE FOI EXECUTADO
-    entraram = [0] * n  # LISTA DE 0/1 PARA SABER QUAIS PROCESSOS JA ENTRAM
-    fila = []  # UMA FILA, QUE IRÁ DETERMINAR QUAIS OS PROXIMOS PROCESSOS IRÃO EXECUTAR
-    tempos_finalizacao = [0] * n  # Armazena o tempo de finalização de cada processo
-    quantum = float(input("Insira o valor do quantum: "))
+import matplotlib.pyplot as plt
 
-    def entra():
-        for x in range(n):  # ADICIONA OS TEMPOS QUE NÃO ENTRARAM E MENORES OU IGUAL AO RELOGIO NA FILA
-            if entradas[x] <= relogio and entraram[x] == 0:
-                entraram[x] = 1  # OS PROCESSOS QUE JÁ ENTRARAM, RECEBEM 1, ASSIM SÓ ENTRAM NOVAMENTE NA FILA EM CASO DE PREEPÇÃO
-                fila.append(x)  # O PROCESSO É ADICIONADO AO FIM DA FILA
+def rr(listas, quantum):
+    n = len(listas)
+    tmpEnt = [0] * n  # Tempos de chegada, inicializados como 0
+    tmpExe = [len(lista) for lista in listas]  # Tempos de execução (tamanhos das listas)
 
-    while True:
-        entra()
-        if not fila:  # Se a fila estiver vazia, verificar se todos os processos foram concluídos
-            if all([p == t for p, t in zip(processados, tempos)]):
-                break
-            relogio += 1  # Incrementar o relógio até que um novo processo entre na fila
-            continue
+    relogio = 0  # Tempo atual
+    processados = [0] * n  # Tempo processado de cada lista
+    fila = list(range(n))  # Fila de processos (inicialmente todos)
+    tempos_finalizacao = [0] * n  # Tempos de finalização de cada lista
+    gantt_chart = []
 
-        processo = fila.pop(0)
-        falta = tempos[processo] - processados[processo]  # VARIÁVEL FALTA RECEBE O TEMPO DO PROCESSO - O QUE JÁ FOI PROCESSADO
-        if falta > quantum:  # SE FALTA MAIS QUE O QUANTUM ENTRA NO BLOCO
-            relogio += quantum  # RELOGIO INCREMENTA O QUANTUM, POIS IRÁ EXECUTAR TODO O TEMPO DO QUANTUM
-            processados[processo] += quantum  # INCREMENTA EM UM QUANTUM O QUE JÁ FOI PROCESSADO DO PROCESSO ATUAL
-            fila.append(processo)  # COMO O PROCESSO NÃO FOI EXECUTADO TOTALMENTE, ELE VOLTA PARA O FIM DA FILA DE EXECUÇÃO
-            print(f"Processo {processo + 1} executou por {quantum} unidades; tempo restante: {tempos[processo] - processados[processo]}")
-            relogio += 1  # Incrementa o relógio para a sobrecarga de troca de contexto
-            print(f'Processo {processo + 1} preemptado; mais 1.0 unidade de tempo por conta da "sobrecarga de troca de contexto"')
-        elif falta <= quantum and falta > 0:  # NESSE CASO VERIFICAMOS SE FALTA ALGUM TEMPO ENTRE 0 E O QUANTUM A SER EXECUTADO
-            relogio += falta  # INCREMENTA O RELÓGIO O TEMPO QUE FALTA
-            processados[processo] += falta  # INCREMENTA O QUE FALTA AO QUE JÁ FOI PROCESSADO DO PROCESSO ATUAL
-            tempos_finalizacao[processo] = relogio  # ARMAZENA O TEMPO DE FINALIZAÇÃO DO PROCESSO
-            print(f"Processo {processo + 1} executou por {falta} unidades; completou no tempo {relogio}")
-        
+    turnaround_times = []
 
-    soma_turnaround = sum([tempos_finalizacao[i] - entradas[i] for i in range(n)])
-    return float(soma_turnaround / n)  # RETORNA A MEDIA DOS TURNAROUND
+    while fila:
+        processo = fila.pop(0)  # Pega o próximo processo da fila
+        falta = tmpExe[processo] - processados[processo]  # Tempo restante para o processo
+        start_time = relogio
+
+        if falta > quantum:
+            relogio += quantum
+            processados[processo] += quantum
+            gantt_chart.append((processo + 1, start_time, relogio))
+            fila.append(processo)  # Reinsere o processo na fila
+        elif falta > 0:
+            relogio += falta
+            processados[processo] += falta
+            tempos_finalizacao[processo] = relogio
+            gantt_chart.append((processo + 1, start_time, relogio))
+
+        turnarounds_atuais = [tempos_finalizacao[i] - tmpEnt[i] for i in range(n) if tempos_finalizacao[i] > 0]
+        if turnarounds_atuais:
+            turnaround_times.append((relogio, sum(turnarounds_atuais) / len(turnarounds_atuais)))
+
+    turnaround_medio_final = sum([tempos_finalizacao[i] - tmpEnt[i] for i in range(n)]) / n
+    turnaround_medio_final = round(turnaround_medio_final, 2)
+
+    return turnaround_times, turnaround_medio_final, gantt_chart
+
+def plot_gantt_chart(gantt_chart, n):
+    fig, gnt = plt.subplots()
+    gnt.set_xlabel('Tempo')
+    gnt.set_ylabel('Processos')
+
+    yticks = [f'Lista {i+1}' for i in range(n)]
+    gnt.set_yticks(range(1, n + 1))
+    gnt.set_yticklabels(yticks)
+    gnt.grid(True)
+
+    colors = ['red', 'blue', 'green', 'purple', 'orange', 'cyan', 'magenta', 'yellow', 'brown', 'grey']
+    color_map = {i + 1: colors[i % len(colors)] for i in range(n)}
+
+    for processo, start, end in gantt_chart:
+        gnt.barh(processo, end - start, left=start, height=0.4, align='center', color=color_map[processo])
+
+    max_time = max(end for _, _, end in gantt_chart)
+    gnt.set_xticks(range(0, int(max_time) + 1, 5))
+
+    plt.show()
+
+def plot_turnaround_times(turnaround_times, quantum_range):
+    quanta = list(range(1, quantum_range + 1))
+    turnarounds = [turnaround_times[q - 1] for q in quanta]
+
+    plt.figure()
+    plt.plot(quanta, turnarounds, marker='o', color='skyblue')
+    plt.xlabel('Tempo de quantum')
+    plt.ylabel('Tempo médio de turnaround')
+    plt.title('Tempo de turnaround varia com o quantum de tempo')
 
 
-# LÊ A QUANTIDADE DE PROCESSOS E CRIA AS LISTAS DE TEMPO DE EXECUÇÃO E TEMPO DE ENTRADA PARA CADA PROCESSO
-n = int(input("Informe o numero de processos: "))
-tmpExe = []
-tmpEnt = []
+    plt.grid(True)
+    plt.show()
 
-# LÊ OS TEMPOS DE EXECUÇÃO E DE ENTRADA PARA CADA PROCESSO
-for x in range(1, n + 1):
-    print("Tempo de entrada do processo ", x, ": ")
-    tmpEnt.append(float(input()))
-    print("Tempo de execução do processo ", x, ": ")
-    tmpExe.append(float(input()))
+def bubble_sort(items):
+    had_swap = True
+    while had_swap:
+        had_swap = False
+        for i in range(len(items) - 1):
+            if items[i] > items[i + 1]:
+                swap(items, i)
+                had_swap = True
+    return items
 
-turnaround_medio = rr()
-print("TURNAROUND MÉDIO:", turnaround_medio)
+def swap(items, index):
+    items[index], items[index + 1] = items[index + 1], items[index]
+
+if __name__ == '__main__':
+    num_listas = int(input("Quantas listas deseja ordenar? "))
+
+    listas = []
+    processos = []
+    for i in range(num_listas):
+        user_input = input(f"Digite a lista {i+1} de números separados por espaço: ")
+        lista = list(map(int, user_input.split()))
+        listas.append(lista)
+        processos.append(len(lista))  # Guardando o tamanho da lista como tempo de execução
+
+    quantum = int(input("Digite o valor do quantum: "))
+
+    # Calcula os tempos de turnaround para diferentes valores de quantum
+    turnaround_times = []
+    for q in range(1, quantum + 1):
+        _, turnaround_medio, _ = rr(listas, q)
+        turnaround_times.append(turnaround_medio)
+
+    turnaround_times_usuario, turnaround_medio_final_usuario, gantt_chart_usuario = rr(listas, quantum)
+    print(f"Turnaround médio final para o quantum {quantum}: {turnaround_medio_final_usuario:.2f}")
+
+    for i, lista in enumerate(listas):
+        sorted_lista = bubble_sort(lista)
+        print(f"Lista {i+1} ordenada:", sorted_lista)
+
+    plot_gantt_chart(gantt_chart_usuario, num_listas)
+    plot_turnaround_times(turnaround_times, quantum)
